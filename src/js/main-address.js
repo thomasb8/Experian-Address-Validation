@@ -25,8 +25,14 @@ ContactDataServices.address = function(customOptions){
       instance.input = instance.elements.input;
       instance.countryCodeMapping = instance.elements.countryCodeMapping || {};
 
-      // Bind an event listener on the input
-      instance.input.addEventListener("keyup", instance.search);
+      // Bind an event listener to the search button if provided
+      if (instance.elements.searchButton) {
+        instance.elements.searchButton.addEventListener('click', instance.search);
+      } else {
+        // Bind an event listener on the input
+        instance.input.addEventListener("keyup", instance.search);
+      }
+
       instance.input.addEventListener("keydown", instance.checkTab);
       // Set a placeholder for the input
       instance.input.setAttribute("placeholder", instance.placeholderText);
@@ -199,7 +205,7 @@ ContactDataServices.address = function(customOptions){
       instance.searchSpinner.hide();
 
       // Prepend an option for "use address entered"
-      instance.picklist.useAddressEntered.element = instance.picklist.useAddressEntered.element || instance.picklist.useAddressEntered.create();
+      // instance.picklist.useAddressEntered.element = instance.picklist.useAddressEntered.element || instance.picklist.useAddressEntered.create();
 
       if(instance.picklist.size > 0){
         // Fire an event before picklist is created
@@ -212,7 +218,7 @@ ContactDataServices.address = function(customOptions){
           instance.picklist.list.appendChild(listItem);
 
           // Listen for selection on this item
-          instance.picklist.listen(listItem);
+          instance.picklist.listen(instance.picklist.list);
         });
 
         // Fire an event after picklist is created
@@ -224,9 +230,12 @@ ContactDataServices.address = function(customOptions){
       // Clear the current picklist item
       instance.picklist.currentItem = null;
       // Remove the "use address entered" option too
-      instance.picklist.useAddressEntered.destroy();
+      // instance.picklist.useAddressEntered.destroy();
       // Remove the main picklist container
       if(instance.picklist.list){
+        if (instance.elements.addressSelector) {
+          return;
+        }
         instance.input.parentNode.removeChild(instance.picklist.container);
         instance.picklist.list = undefined;
       }
@@ -298,13 +307,18 @@ ContactDataServices.address = function(customOptions){
     },
     // Create the picklist list (and container) and inject after the input
     createList: function(){
+      if (instance.elements.addressSelector) {
+        instance.elements.addressSelector.addEventListener("keydown", instance.picklist.enter);
+        instance.elements.addressSelector.classList.add("address-picklist");
+        return instance.elements.addressSelector;
+      }
       var container = document.createElement("div");
       container.classList.add("address-picklist-container");
       // Insert the picklist container after the input
       instance.input.parentNode.insertBefore(container, instance.input.nextSibling);
       instance.picklist.container = container;
 
-      var list = document.createElement("div");
+      var list = document.createElement("select");
       list.classList.add("address-picklist");
       // Append the picklist to the container
       container.appendChild(list);
@@ -314,7 +328,7 @@ ContactDataServices.address = function(customOptions){
     },
     // Create a new picklist item/row
     createListItem: function(item){
-      var row = document.createElement("div");
+      var row = document.createElement("option");
       row.innerHTML = instance.picklist.addMatchingEmphasis(item);
       // Store the Format URL
       row.setAttribute("format", item.format);
@@ -412,8 +426,14 @@ ContactDataServices.address = function(customOptions){
             return label;
     },
     // Listen to a picklist selection
-    listen: function(row){
-      row.addEventListener("click", instance.picklist.pick.bind(null, row));
+    listen: function(list){
+      list.addEventListener('change', function(event) {
+        if (event.handled === true) {
+          return;
+        }
+        instance.picklist.pick(event.target.options[event.target.selectedIndex]);
+        event.handled = true;
+      });
     },
     checkEnter: function(){
       var picklistItem;
@@ -430,6 +450,9 @@ ContactDataServices.address = function(customOptions){
     },
     // How to handle a picklist selection
     pick: function(item){
+      if (!item.getAttribute("format")) {
+        return;
+      }
       // Fire an event when an address is picked
       instance.events.trigger("post-picklist-selection", item);
 
@@ -448,7 +471,7 @@ ContactDataServices.address = function(customOptions){
       instance.picklist.hide();
 
       // Clear search input
-      instance.input.value = "";
+      // instance.input.value = "";
       
       if(data.result.address){				
 
@@ -552,15 +575,11 @@ ContactDataServices.address = function(customOptions){
         var addressField = instance.elements[key];
         instance.result.updateLabel(key);
         var value = addressLineObject;
-        // If a value is already present, prepend a comma and space
-        if(addressField.value && value) {
-          value = ", " + value;
-        }
         // Decide what property of the node we need to update. i.e. if it's not a form field, update the innerText.
         if (addressField.nodeName === "INPUT" || addressField.nodeName === "TEXTAREA" || addressField.nodeName === "SELECT") {
-          addressField.value += value;
+          addressField.value = value;
         } else {
-          addressField.innerText += value;
+          addressField.innerText = value;
         }
         // Store a record of their last address field
         instance.result.lastAddressField = addressField;
@@ -614,13 +633,6 @@ ContactDataServices.address = function(customOptions){
       }
     },
     // Write the list of hidden address line inputs to the DOM
-    renderInputList: function(inputArray){
-      if(inputArray.length > 0){
-        for(var i = 0; i < inputArray.length; i++){
-          instance.result.formattedAddressContainer.appendChild(inputArray[i]);
-        }
-      }
-    },
     // Hide the initial country and address search inputs
     hideSearchInputs: function(){
       instance.toggleVisibility(instance.input.parentNode);
@@ -700,9 +712,6 @@ ContactDataServices.address = function(customOptions){
     badRequest: function(xhr){
       instance.enabled = false;
 
-      // As searching is disabled, show button to render final address instead
-      instance.handleError.showSubmitButton();
-
       // Fire an event to notify users of the error
       instance.events.trigger("request-error-400", xhr);
     },
@@ -710,9 +719,6 @@ ContactDataServices.address = function(customOptions){
     // How to handle 401 Unauthorized (invalid token?) requests
     unauthorized: function(xhr){
       instance.enabled = false;
-
-      // As searching is disabled, show button to render final address instead
-      instance.handleError.showSubmitButton();
 
       // Fire an event to notify users of the error
       instance.events.trigger("request-error-401", xhr);
@@ -722,9 +728,6 @@ ContactDataServices.address = function(customOptions){
     forbidden: function(xhr){
       instance.enabled = false;
 
-      // As searching is disabled, show button to render final address instead
-      instance.handleError.showSubmitButton();
-
       // Fire an event to notify users of the error
       instance.events.trigger("request-error-403", xhr);
     },
@@ -733,24 +736,8 @@ ContactDataServices.address = function(customOptions){
     notFound: function(xhr){
       instance.enabled = false;
 
-      // As searching is disabled, show button to render final address instead
-      instance.handleError.showSubmitButton();
-
       // Fire an event to notify users of the error
       instance.events.trigger("request-error-404", xhr);
-    },
-
-    // As searching is disabled, show button to render final address instead
-    showSubmitButton: function(){
-      var button = document.createElement("button");
-      button.innerText = "Submit";
-      instance.input.parentNode.insertBefore(button, instance.input.nextSibling);
-      button.addEventListener("click", function(){
-        // Simulate a manual "use address entered" entry
-        instance.picklist.useAddressEntered.click();
-        // Remove the button
-        instance.input.parentNode.removeChild(button);
-      });
     }
   };
 
