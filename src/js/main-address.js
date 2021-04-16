@@ -207,10 +207,10 @@ ContactDataServices.address = function(customOptions){
       // Prepend an option for "use address entered"
       // instance.picklist.useAddressEntered.element = instance.picklist.useAddressEntered.element || instance.picklist.useAddressEntered.create();
 
-      if(instance.picklist.size > 0){
-        // Fire an event before picklist is created
-        instance.events.trigger("pre-picklist-create", instance.picklist.items);
 
+        // Fire an event before picklist is created
+      instance.events.trigger("pre-picklist-create", instance.picklist.items);
+      if(instance.picklist.size > 0){
         // Iterate over and show results
         instance.picklist.items.forEach(function(item){
           // Create a new item/row in the picklist
