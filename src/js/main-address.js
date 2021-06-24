@@ -100,7 +100,9 @@ ContactDataServices.address = function(customOptions){
 
       // Construct the new Search URL and data
       var url = ContactDataServices.urls.construct.address.searchUrl();
-      var data = ContactDataServices.urls.construct.address.searchData(instance);
+      // var data = ContactDataServices.urls.construct.address.searchData(instance);
+
+      url = url + ContactDataServices.urls.construct.address.searchDataAsQuery(instance);
 
       // Store the last search term
       instance.lastSearchTerm = instance.currentSearchTerm;
@@ -115,7 +117,7 @@ ContactDataServices.address = function(customOptions){
       instance.searchSpinner.show();
 
       // Initiate new Search request
-      instance.request.send(url, "POST", instance.picklist.show, data);
+      instance.request.send(url, "GET", instance.picklist.show);
     } else if(instance.lastSearchTerm !== instance.currentSearchTerm){
       // Clear the picklist if the search term is cleared/empty
       instance.picklist.hide();
@@ -184,7 +186,11 @@ ContactDataServices.address = function(customOptions){
     // Render a picklist of search results
     show: function(items){
       // Store the picklist items
-      instance.picklist.items = items.result.suggestions;
+      // instance.picklist.items = items.result.suggestions;
+
+      instance.picklist.items = items.results.map(function(item) {
+        return Object.assign({}, item, { text: item.suggestion });
+      });
 
       // Reset any previously selected current item
       instance.picklist.currentItem = null;
@@ -473,10 +479,18 @@ ContactDataServices.address = function(customOptions){
       // Clear search input
       // instance.input.value = "";
       
-      if(data.result.address){				
+      if(data.address){
 
         // Create an array to hold the hidden input fields
         var inputArray = [];
+
+
+        // Mapping because of different response for v2
+
+        data.resultAddress = data.address.reduce(function(acc, current) {
+          return Object.assign({}, acc, current);
+        }, {});
+
 
         // Get formatted address container element
         // Only create a container if we're creating inputs. otherwise the user will have their own container.
@@ -485,13 +499,13 @@ ContactDataServices.address = function(customOptions){
           instance.result.createFormattedAddressContainer();
         }
 
-        instance.result.updateAddressLine("address_line_1", data.result.address.address_line_1, "address-line-input");
-        instance.result.updateAddressLine("address_line_2", data.result.address.address_line_2, "address-line-input");
-        instance.result.updateAddressLine("address_line_3", data.result.address.address_line_3, "address-line-input");
-        instance.result.updateAddressLine("locality", data.result.address.locality, "address-line-input");
-        instance.result.updateAddressLine("region", data.result.address.region, "address-line-input");
-        instance.result.updateAddressLine("postal_code", data.result.address.postal_code, "address-line-input");
-        instance.result.updateAddressLine("country", data.result.address.country, "address-line-input");
+        instance.result.updateAddressLine("address_line_1", data.resultAddress.addressLine1, "address-line-input");
+        instance.result.updateAddressLine("address_line_2", data.resultAddress.addressLine2, "address-line-input");
+        instance.result.updateAddressLine("address_line_3", data.resultAddress.addressLine3, "address-line-input");
+        instance.result.updateAddressLine("locality", data.resultAddress.locality, "address-line-input");
+        instance.result.updateAddressLine("region", data.resultAddress.province, "address-line-input");
+        instance.result.updateAddressLine("postal_code", data.resultAddress.postalCode, "address-line-input");
+        instance.result.updateAddressLine("country", data.resultAddress.country, "address-line-input");
 
         // Hide country and address search fields (if they have a 'toggle' class)
         instance.result.hideSearchInputs();
